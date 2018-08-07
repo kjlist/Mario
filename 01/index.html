@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mario</title>
+</head>
+<body>
+<!--ajax解包-->
+<h3>?</h3>
+<canvas id="id-canvas" width="640" height="640"></canvas>
+<div class="gua-controls">
+<button data-action="change_offset" data-offset="-1024">-1024</button>
+<button data-action="change_offset" data-offset="-16">-16</button>
+<button data-action="change_offset" data-offset="16">16</button>
+<button data-action="change_offset" data-offset="1024">1024</button>
+</div>
+<script>
+    /*
+    * 8*8像素每个方块
+    * 2 bits每个像素
+    *
+    * 每个像素放大
+    *
+    * */
+    const e = sel => document.querySelector(sel)
+    const log = console.log.bind(this)
+    const ajax = request => {
+        let r = new XMLHttpRequest()
+        r.open('GET', request.url, true)
+        r.responseType = 'arraybuffer'
+        r.onreadystatechange = event => {
+            if (r.readyState == 4) {
+                request.callback(r.response)
+            }
+        }
+        r.send()
+    }
+    const drawNes = bytes => {
+        let canvas = e("#id-canvas")
+        let context = canvas.getContext('2d')
+        let tileNum = 8//一页8x8个tiles
+        let tileSize = 8//一个tile有8x8个像素
+        let pixelwidth = 10//每个像素的宽度
+        let numberOfBytesPerTile = 16//16个字节一个图块
+        for (let i = 0; i < tileNum; i++) {
+            for (let j = 0; j < tileNum; j++) {
+                //算出bytes
+                let x = j * tileSize * pixelwidth
+                let y = i * tileSize * pixelwidth
+                let index = window.offset + (i * tileNum + j) * numberOfBytesPerTile
+                //其实应该drawTile更准确
+                drawTile(context, bytes.slice(index), x, y, pixelwidth)
+            }
+        }
+    }
+    const drawTile = (context, data, x, y, pixelwidth) =>{
+        const colors = [
+            'white',
+            '#fe1000',
+            '#ffb010',
+            '#aa3030',
+        ]
+        let w = pixelwidth
+        let h = pixelwidth
+        for (let i = 0; i < 8; i++) {
+            let p1 = data[i]
+            let p2 = data[i + 8]
+            // log('kkk1',p1)
+            // log('kkk2',p2)
+            for (let j = 0; j < 8; j++) {
+                //8 bit per line
+                //在j循环中每一次画一个像素点
+                //78 69
+                //0100 1110   0100 0101
+                let c1 = (p1 >> (7 - j)) & 0b00000001
+                let c2 = (p2 >> (7 - j)) & 0b00000001
+                let pixel = (c2 << 1) + c1
+                // if (pixel == 0){
+                //     continue
+                // }
+                let color = colors[pixel]
+                context.fillStyle = color
+                let px = x + j * w
+                let py = y + i * h
+                context.fillRect(px, py, w, h)
+            }
+        }
+
+    }
+    const actions = {
+        change_offset(offset) {
+            window.offset += offset
+            e('h3').innerHTML = window.offset
+            drawNes(window.bytes)
+        },
+    }
+    const bindEvent = () => {
+        e('.gua-controls').addEventListener('click', event => {
+            let action = event.target.dataset.action
+            let offset = Number(event.target.dataset.offset)
+            actions[action] && actions[action](offset)
+        })
+    }
+    const __main = () => {
+        window.offset = 0
+        let request = {
+            url: 'mario.nes',
+            callback(r) {
+                window.bytes = new Uint8Array(r)
+                log(bytes)
+                drawNes(bytes)
+            },
+        }
+        ajax(request)
+        bindEvent()
+    }
+    __main()
+</script>
+</body>
+</html>
